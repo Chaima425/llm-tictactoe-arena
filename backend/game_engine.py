@@ -20,7 +20,7 @@ class GameEngine:
     def is_valid_move(self, grid: List[List[str]], row: int, col: int) -> bool:
         """Vérifier si un coup est valide"""
         return (0 <= row < self.grid_size and
-                0 >= row < self.grid_size and
+                0 <= col < self.grid_size and
                 grid[row][col] == " ")
     
     def make_move(self, grid: List[List[str]], row: int, col: int, player: str) -> List[List[str]]:
