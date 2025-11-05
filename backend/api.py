@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 import logging
 import json
 
-from shared.models import GameState, MoveRequest, MoveResponse
+# from shared.models import GameState, MoveRequest, MoveResponse
 from backend.game_engine import GameEngine
 from backend.llm_client import LLMClient
 
@@ -43,7 +43,7 @@ async def start_game():
     try:
         game_state = game_engine.create_new_game()
         
-        # Retour JSON explicite comme demandé
+        # Retour (JSON)
         response_data = {
             "grid": game_state["grid"],
             "current_player": game_state["current_player"],
@@ -62,7 +62,7 @@ async def start_game():
 
 @app.post("/api/game/move")
 async def make_move(request: MoveRequest):
-    """Demander un coup au LLM - TOUT EN JSON"""
+    """Demander un coup au LLM"""
     logger.info(f"Demande de coup - Joueur: {request.current_player}, Modèle: {request.model_name}")
     
     try:
