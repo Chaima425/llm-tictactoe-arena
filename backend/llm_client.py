@@ -1,7 +1,6 @@
 from dotenv import load_dotenv
 from os import getenv
 import requests
-import json
 import logging
 
 load_dotenv()
