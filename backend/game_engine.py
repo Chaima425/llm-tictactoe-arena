@@ -35,16 +35,16 @@ class GameEngine:
         directions = [(0, 1), (1, 0), (1, 1), (1, -1)]
 
         # On parcours la grille sur chaque row et col
-        for i in range(self.grid_size):
-            for j in range(self.grid_size):
-                if grid[i][j] == player:
+        for row in range(self.grid_size):
+            for col in range(self.grid_size):
+                if grid[row][col] == player:
                     for dx, dy in directions:
                         count = 1
                         for step in range(1, self.win_length):
-                            ni, nj = i + dx * step, j + dy * step
-                            if (0 <= ni < self.grid_size and
-                                0 <= nj < self.grid_size and
-                                grid[ni][nj] == player):
+                            nrow, ncol = row + dx * step, col + dy * step
+                            if (0 <= nrow < self.grid_size and
+                                0 <= ncol < self.grid_size and
+                                grid[nrow][ncol] == player):
                                 count += 1
                             else:
                                 break
