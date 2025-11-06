@@ -55,3 +55,19 @@ class GameEngine:
     def is_grid_full(self, grid: List[List[str]]) -> bool:
         """Vérifier si la grille est remplie"""
         return all(cell != " " for row in grid for cell in row)
+    
+    def _select_strategic_move(self, empty_cells: list, reason: str) -> dict:
+        """Choisir un coup stratégique parmi les cases vides"""
+        if not empty_cells:
+            return {"row": 0, "col": 0, "raw_response": reason, "error": "no_cells"}
+        
+        # Priorité aux cases centrales
+        center_cells = [(4,4), (4,5), (5,4), (5,5), (3,3), (3,6), (6,3), (6,6)]
+        for cell in center_cells:
+            if cell in empty_cells:
+                return {"row": cell[0], "col": cell[1], "raw_response": f"strategic_center: {reason}"}
+        
+        # Sinon au hasard
+        import random
+        cell = random.choice(empty_cells)
+        return {"row": cell[0], "col": cell[1], "raw_response": f"random_fallback: {reason}"}
