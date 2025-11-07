@@ -7,13 +7,16 @@ ROWS, COLS = 10, 10
 
 class TicTacToeApp:
     def __init__(self):
-        self.grid = [["" for _ in range(COLS)] for _ in range(ROWS)]
+        self.grid: List[List[str]] = [[" " for _ in range(COLS)] for _ in range(ROWS)]
         self.scores = {"X": 0, "O": 0}
+        self.move_count = 0
+        self.move_x = 0
+        self.move_y = 0
         self.current_player = "X"
-        self.current_game_id = None
+        self.current_game_id: Optional[str] = None
         self.auto_mode = False
-        self.auto_timer = None
-        self.cells = [[None for _ in range(COLS)] for _ in range(ROWS)]
+        self.auto_timer: Optional[Any] = None
+        self.cells: List[List[Optional[ui.label]]] = [[None for _ in range(COLS)] for _ in range(ROWS)]
         self.available_models = []
         
         # Récupérer les modèles avant de construire l'UI
@@ -25,9 +28,9 @@ class TicTacToeApp:
         try:
             resp = requests.get(f"{API_URL}/api/models")
             resp.raise_for_status()
-            self.available_models = resp.json().get("models", ["phi1"])
+            self.available_models = resp.json().get("models", ["phi3"])
         except Exception as e:
-            self.available_models = ["phi1"]
+            self.available_models = ["phi3"]
             print(f"Erreur récupération modèles: {e}")
 
     def setup_ui(self):
@@ -37,26 +40,32 @@ class TicTacToeApp:
         
         # Dropdown pour modèles
         with ui.row().style("width: 100%; justify-content: center; gap: 16px; margin-bottom: 10px;"):
-            self.model_x_input = ui.select(self.available_models, value=self.available_models[0], label="Model X").style("width: 150px;")
-            self.model_o_input = ui.select(self.available_models, value=self.available_models[0], label="Model O").style("width: 150px;")
+            default_model = self.available_models[0] if self.available_models else "phi3"
+            self.model_x_input = ui.select(self.available_models, value=default_model, label="Model X").style("width: 150px;")
+            self.model_o_input = ui.select(self.available_models, value=default_model, label="Model O").style("width: 150px;")
 
         # Game ID
         with ui.row().style("width: 100%; justify-content: center; gap: 16px; margin-bottom: 10px;"):
             self.game_id_label = ui.label("Game ID: (non démarré)").style("font-size: 12px; color: #666;")
         
-        with ui.row().style("width: 100%; justify-content: space-between; align-items: flex-start;"):
+        with ui.row().style("width: 100%; justify-content: center;"):
+            # Colonne X
             with ui.column().style("align-items: center;"):
                 ui.label("X").style("color: red; font-weight: bold; font-size: 22px;")
-                self.x_score_label = ui.label("0").style("font-size: 22px; font-weight: bold; color: red;")
+                self.moves_x_label = ui.label("Coups joués: 0").style("font-size: 14px; color: red;")
             
+            # Colonne centrale (Scores globaux)
             with ui.column().style("align-items: center; flex-shrink: 0;"):
                 ui.label("Scores").style("font-size: 20px; font-weight: bold; margin-bottom: 5px;")
-                self.score_label = ui.label("X: 0 | O: 0").style("font-size: 18px; font-weight: bold; margin-bottom: 15px;")
+                with ui.row().style("align-items: center; flex-shrink: 0;"):
+                    self.x_score_label = ui.label("0").style("font-size: 22px; font-weight: bold; color: red;")
+                    self.o_score_label = ui.label("0").style("font-size: 22px; font-weight: bold; color: blue;")
                 self.setup_grid()
             
+            # Colonne O
             with ui.column().style("align-items: center;"):
                 ui.label("O").style("color: blue; font-weight: bold; font-size: 22px;")
-                self.o_score_label = ui.label("0").style("font-size: 22px; font-weight: bold; color: blue;")
+                self.moves_o_label = ui.label("Coups joués: 0").style("font-size: 14px; color: blue;")
         
         self.logs_text = ui.label("").style("white-space: pre-wrap; max-height: 200px; overflow: auto; background: #fafafa; padding: 8px; border-radius: 6px; border: 1px solid #eee; width: 100%;")
         self.stats_label = ui.label("Statistiques des modèles:").style("white-space: pre-wrap; max-height: 200px; overflow: auto; background: #fafafa; padding: 8px; border-radius: 6px; border: 1px solid #eee; width: 100%;")
@@ -68,7 +77,7 @@ class TicTacToeApp:
 
     def setup_grid(self):
         CELL = 35
-        self.grid_container = ui.column().style("align-items: center; padding: 15px; border-radius: 10px; box-shadow: 2px 2px 10px rgba(0,0,0,0.2);")
+        self.grid_container = ui.column().style("align-items: center; padding: 20px; border-radius: 10px; box-shadow: 2px 2px 10px rgba(0,0,0,0.2); background: white;")
         
         with self.grid_container:
             for r in range(ROWS):
@@ -83,12 +92,16 @@ class TicTacToeApp:
 
     def init_game(self):
         try:
-            api_url = self.api_input.value or API_URL
-            resp = requests.post(f"{api_url}/api/game/start")
+            resp = requests.post(f"{API_URL}/api/game/start")
             game_data = resp.json()
             
             self.current_game_id = game_data["game_id"]
             self.current_player = game_data["current_player"]
+            
+            # Réinitialiser les compteurs de coups
+            self.move_count = 0
+            self.move_x = 0
+            self.move_y = 0
             
             for r in range(ROWS):
                 for c in range(COLS):
@@ -105,12 +118,11 @@ class TicTacToeApp:
             return
 
         try:
-            api_url = self.api_input.value or API_URL
             model_name = self.model_x_input.value if self.current_player == "X" else self.model_o_input.value
             
             backend_grid = [[" " if cell == "" else cell for cell in row] for row in self.grid]
             
-            resp = requests.post(f"{api_url}/api/game/move", json={
+            resp = requests.post(f"{API_URL}/api/game/move", json={
                 "game_id": self.current_game_id,
                 "grid": backend_grid,
                 "current_player": self.current_player,
@@ -124,6 +136,13 @@ class TicTacToeApp:
                 for c in range(COLS):
                     self.grid[r][c] = "" if game_data["grid"][r][c] == " " else game_data["grid"][r][c]
             
+            # Mettre à jour les compteurs de coups joués
+            if self.current_player == "X":
+                self.move_x += 1
+            else:
+                self.move_y += 1
+            self.move_count += 1
+
             self.current_player = game_data["current_player"]
             
             if game_data.get("winner"):
@@ -139,15 +158,18 @@ class TicTacToeApp:
             ui.notify(f"Erreur: {e}", color="negative")
 
     def update_display(self):
-        self.score_label.set_text(f"X: {self.scores['X']} | O: {self.scores['O']}")
         self.x_score_label.set_text(str(self.scores["X"]))
         self.o_score_label.set_text(str(self.scores["O"]))
+        
+        # Mise à jour des coups joués
+        self.moves_x_label.set_text(f"Coups joués: {self.move_x}")
+        self.moves_o_label.set_text(f"Coups joués: {self.move_y}")
         
         for r in range(ROWS):
             for c in range(COLS):
                 cell = self.grid[r][c]
                 cell_widget = self.cells[r][c]
-                if cell_widget is not None:  # Vérification de nullité
+                if cell_widget is not None:
                     if cell == "X": 
                         color, bg, text = "white", "red", "X"
                     elif cell == "O": 
