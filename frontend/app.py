@@ -7,25 +7,40 @@ ROWS, COLS = 10, 10
 
 class TicTacToeApp:
     def __init__(self):
-        self.grid: List[List[str]] = [["" for _ in range(COLS)] for _ in range(ROWS)]
+        self.grid = [["" for _ in range(COLS)] for _ in range(ROWS)]
         self.scores = {"X": 0, "O": 0}
         self.current_player = "X"
-        self.current_game_id: Optional[str] = None
+        self.current_game_id = None
         self.auto_mode = False
-        self.auto_timer: Optional[Any] = None
-        self.model_stats = {}
-        self.cells: List[List[Optional[ui.label]]] = [[None for _ in range(COLS)] for _ in range(ROWS)]
+        self.auto_timer = None
+        self.cells = [[None for _ in range(COLS)] for _ in range(ROWS)]
+        self.available_models = []
+        
+        # Récupérer les modèles avant de construire l'UI
+        self.fetch_models()
         self.setup_ui()
 
+    def fetch_models(self):
+        """Récupérer les modèles depuis le backend"""
+        try:
+            resp = requests.get(f"{API_URL}/api/models")
+            resp.raise_for_status()
+            self.available_models = resp.json().get("models", ["phi1"])
+        except Exception as e:
+            self.available_models = ["phi1"]
+            print(f"Erreur récupération modèles: {e}")
+
     def setup_ui(self):
+        # Header
         with ui.row().style("width: 100%; justify-content: center; gap: 16px; margin-bottom: 10px;"):   
             ui.label("Tic Tac Toe - LLM Battle").style("font-size: 28px; font-weight: bold; margin-bottom: 20px;")
         
+        # Dropdown pour modèles
         with ui.row().style("width: 100%; justify-content: center; gap: 16px; margin-bottom: 10px;"):
-            self.model_x_input = ui.input("Model X", value="phi3").style("width: 150px;")
-            self.model_o_input = ui.input("Model O", value="phi3").style("width: 150px;")
-            self.api_input = ui.input("API URL", value=API_URL).style("width: 300px;")
-            
+            self.model_x_input = ui.select(self.available_models, value=self.available_models[0], label="Model X").style("width: 150px;")
+            self.model_o_input = ui.select(self.available_models, value=self.available_models[0], label="Model O").style("width: 150px;")
+
+        # Game ID
         with ui.row().style("width: 100%; justify-content: center; gap: 16px; margin-bottom: 10px;"):
             self.game_id_label = ui.label("Game ID: (non démarré)").style("font-size: 12px; color: #666;")
         
