@@ -3,6 +3,7 @@ import requests
 import random
 import re
 from dotenv import load_dotenv
+from azure_client import AzureClient
 
 load_dotenv()
 
@@ -10,23 +11,58 @@ class LLMClient:
     def __init__(self):
         self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
         self.recent_moves = []
+        self.azure_client = AzureClient()
 
     def get_available_models(self) -> list:
+        local_models = []
         try:
             response = requests.get(f"{self.ollama_url}/api/tags")
             if response.status_code == 200:
-                return [model['name'] for model in response.json().get('models', [])]
-            else:
-                return ["llama2"]
+                local_models = [model['name'] for model in response.json().get('models', [])]
         except Exception:
-            return ["llama2"]
+            local_models = ["phi3:3.8b"]
+        
+        azure_models = self.azure_client.get_azure_models()
+        return local_models + azure_models
 
-    def ask_move(self, grid: list, player: str, model: str) -> dict:
+    def ask_move(self, grid: list, player: str, model: str, max_attempts: int = 3) -> dict:
+        """Demander un coup à un modèle (local ou Azure) avec validation"""
         empty_cells = [(i, j) for i in range(10) for j in range(10) if grid[i][j] == " "]
         if not empty_cells:
             return {"row": 0, "col": 0, "valid": False, "error": "grid_full"}
         
-        for attempt in range(3):
+        if model.startswith("azure:"):
+            for attempt in range(max_attempts):
+                azure_response = self.azure_client.get_azure_move(grid, player, model)
+                
+                # Si la réponse contient une erreur, on log et on retente
+                if "error" in azure_response:
+                    print(f"Erreur de communication avec Azure (tentative {attempt+1}/{max_attempts}): {azure_response['error']}")
+                    continue
+
+                # Si on a une réponse, on la valide
+                parsed_move = self._validate_move(
+                    azure_response['row'], 
+                    azure_response['col'], 
+                    empty_cells, 
+                    azure_response.get('raw_response', '')
+                )
+                
+                if self._is_valid_move(parsed_move, grid):
+                    self.recent_moves.append((parsed_move['row'], parsed_move['col']))
+                    if len(self.recent_moves) > 5:
+                        self.recent_moves.pop(0)
+                    return {"row": parsed_move['row'], "col": parsed_move['col'], "valid": True}
+                else:
+                    # Le coup est syntaxiquement correct mais invalide (ex: case déjà prise)
+                    print(f"Azure a proposé un coup invalide ({parsed_move['row']}, {parsed_move['col']}), nouvelle tentative...")
+            
+            # Si on arrive ici, toutes les tentatives ont échoué
+            print("INFO : Échec des tentatives avec Azure. Utilisation d'un coup stratégique de repli.")
+            return self._select_strategic_move(empty_cells)
+        
+        # Code existant pour les modèles locaux
+        for attempt in range(max_attempts):
             prompt = self._create_prompt(grid, player, empty_cells, attempt)
             try:
                 response = requests.post(
@@ -48,11 +84,13 @@ class LLMClient:
                         if len(self.recent_moves) > 5:
                             self.recent_moves.pop(0)
                         return parsed_move
-            except Exception:
+            except Exception as e:
+                print(f"Erreur modèle local {model}: {e}")
                 continue
         
         return self._select_strategic_move(empty_cells)
 
+    # Le reste des méthodes reste inchangé...
     def _create_prompt(self, grid: list, player: str, empty_cells: list, attempt: int) -> str:
         grid_visual = "   0 1 2 3 4 5 6 7 8 9\n  +-------------------+\n"
         for i, row in enumerate(grid):
@@ -61,11 +99,11 @@ class LLMClient:
         
         if attempt == 0:
             available_cells = [c for c in empty_cells if c not in self.recent_moves][:8]
-            return f"{grid_visual}Joueur {player}, cases disponibles: {available_cells}. Répondez: ligne,colonne"
+            return f"{grid_visual}Player {player}, available cells: {available_cells}. Answer: row,column"
         elif attempt == 1:
-            return f"{grid_visual}Joueur {player}, répondez UNIQUEMENT: ligne,colonne (ex: 3,5)"
+            return f"{grid_visual}Player {player}, answer ONLY: row,column (e.g. 3,5)"
         else:
-            return f"Joueur {player}, donnez deux chiffres (ligne,colonne): "
+            return f"Player {player}, give two numbers (row, column): "
 
     def _parse_response(self, response: str, empty_cells: list) -> dict:
         patterns = [r'^\s*(\d)\s*,\s*(\d)\s*$', r'(\d)\s*[,.\-\s]?\s*(\d)']

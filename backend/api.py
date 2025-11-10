@@ -4,12 +4,14 @@ from pydantic import BaseModel
 
 from game_engine import GameEngine
 from llm_client import LLMClient
+from azure_client import AzureClient
 
 app = FastAPI(title="Tic-Tac-Toe LLM")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 game_engine = GameEngine()
 llm_client = LLMClient()
+azure_client = AzureClient()
 
 class MoveRequest(BaseModel):
     game_id: str
@@ -23,7 +25,8 @@ async def root():
 
 @app.get("/api/models")
 async def get_models():
-    return {"models": llm_client.get_available_models()}
+    all_models = llm_client.get_available_models()
+    return {"models": all_models}
 
 @app.post("/api/game/start")
 async def start_game():
