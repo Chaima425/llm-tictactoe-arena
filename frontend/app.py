@@ -9,9 +9,6 @@ class TicTacToeApp:
     def __init__(self):
         self.grid: List[List[str]] = [[" " for _ in range(COLS)] for _ in range(ROWS)]
         self.scores = {"X": 0, "O": 0}
-        self.move_count = 0
-        self.move_x = 0
-        self.move_y = 0
         self.current_player = "X"
         self.current_game_id: Optional[str] = None
         self.auto_mode = False
@@ -98,11 +95,12 @@ class TicTacToeApp:
             self.current_game_id = game_data["game_id"]
             self.current_player = game_data["current_player"]
             
-            # Réinitialiser les compteurs de coups
+            # Réinitialiser les compteurs
             self.move_count = 0
             self.move_x = 0
             self.move_y = 0
             
+            # Mettre à jour la grille
             for r in range(ROWS):
                 for c in range(COLS):
                     self.grid[r][c] = "" if game_data["grid"][r][c] == " " else game_data["grid"][r][c]
@@ -120,8 +118,10 @@ class TicTacToeApp:
         try:
             model_name = self.model_x_input.value if self.current_player == "X" else self.model_o_input.value
             
+            # Convertir la grille pour le backend
             backend_grid = [[" " if cell == "" else cell for cell in row] for row in self.grid]
             
+            # Appeler le backend pour jouer le coup
             resp = requests.post(f"{API_URL}/api/game/move", json={
                 "game_id": self.current_game_id,
                 "grid": backend_grid,
@@ -131,20 +131,14 @@ class TicTacToeApp:
             
             game_data = resp.json()
             
-            # Mettre à jour la grille
+            # Mettre à jour depuis le backend
             for r in range(ROWS):
                 for c in range(COLS):
                     self.grid[r][c] = "" if game_data["grid"][r][c] == " " else game_data["grid"][r][c]
             
-            # Mettre à jour les compteurs de coups joués
-            if self.current_player == "X":
-                self.move_x += 1
-            else:
-                self.move_y += 1
-            self.move_count += 1
-
             self.current_player = game_data["current_player"]
             
+            # Gestion du gagnant
             if game_data.get("winner"):
                 winner = game_data["winner"]
                 self.scores[winner] += 1
@@ -158,6 +152,7 @@ class TicTacToeApp:
             ui.notify(f"Erreur: {e}", color="negative")
 
     def update_display(self):
+        # Mettre à jour l'affichage uniquement
         self.x_score_label.set_text(str(self.scores["X"]))
         self.o_score_label.set_text(str(self.scores["O"]))
         
