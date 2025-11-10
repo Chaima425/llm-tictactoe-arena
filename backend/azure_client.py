@@ -117,10 +117,32 @@ class AzureClient:
             traceback.print_exc()
             return {"row": -1, "col": -1, "raw_response": "", "error": str(e)}
 
-    def _build_prompt(self, grid: list, player: str) -> str:
-        """Construire une représentation de la grille."""
+    def _build_prompt(self, grid: list, player: str, history: list = None) -> str: # type: ignore
+        """
+        Construit un prompt enrichi contenant :
+        - la grille actuelle
+        - l'historique des coups précédents
+        - les instructions claires pour le modèle
+        """
+        # Historique des coups
+        history_text = ""
+        if history:
+            history_text = "Historique des coups précédents :\n" + "\n".join(
+                [f"Tour {i+1}: Joueur {p} -> {r},{c}" for i, (p, r, c) in enumerate(history)]
+            ) + "\n\n"
+
+        # Représentation textuelle de la grille
         board = "\n".join([
             f"{i}: " + " ".join(["." if cell == " " else cell for cell in row]) 
             for i, row in enumerate(grid)
         ])
-        return f"Grille 10x10 (lignes 0-9, colonnes 0-9):\n{board}\n\nTu joues '{player}'. Donne tes coordonnées sous forme 'ligne,colonne' (ex: 3,7):"
+
+        prompt = (
+            f"{history_text}"
+            f"Current 10x10 grid (rows 0-9, columns 0-9) :\n{board}\n\n"
+            f"You are playing as '{player}'. "
+            "Your goal is to win by lining up 5 identical symbols. "
+            "If your opponent is about to win, block them immediately. "
+            "Respond only with the coordinates 'row,column' (e.g. 3,7)."
+        )
+        return prompt
