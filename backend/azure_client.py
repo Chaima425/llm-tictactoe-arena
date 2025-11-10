@@ -51,17 +51,18 @@ class AzureClient:
                 model=actual_model,
                 messages=[
                     {"role": "system", "content": (
-                        "You are playing Tic-Tac-Toe on a 10x10 grid. "
-                        "You MUST respond with exactly two numbers between 0 and 9 separated by a comma. "
-                        "Example: '4,5' for row 4, column 5. "
-                        "DO NOT include any other text, explanations, or formatting."
+                        "You are an expert Tic-Tac-Toe player on a 10x10 grid. "
+                        "Your ONLY task is to provide your next move as two comma-separated digits (row,column). "
+                        "For example, if you want to play at row 3, column 7, your response MUST be '3,7'. "
+                        "DO NOT include any other text, greetings, explanations, or formatting whatsoever. "
+                        "You must only output 'row,column'."
                         "Victory condition: line up 5 identical elements horizontally, vertically or diagonally."
                         "Defeat condition: if your opponent fulfils the victory condition, you must block these potentially winning moves."
                         "Prioritises victory first and blocking second."
                     )},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=10,
+                max_completion_tokens=20,
             )
             
             print(f"[DEBUG Azure] Réponse complète reçue: {response}")
@@ -97,6 +98,7 @@ class AzureClient:
                 r'^\s*(\d)\s+(\d)\s*$',      # 4 5
                 r'\(\s*(\d)\s*,\s*(\d)\s*\)', # (4,5)
                 r'row\s*(\d).*col\s*(\d)',   # row 4 col 5
+                r'(\d+)\s*(\d+)',
             ]
             
             for pattern in patterns:

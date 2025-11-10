@@ -103,7 +103,7 @@ class TicTacToeApp:
             # Mettre à jour la grille
             for r in range(ROWS):
                 for c in range(COLS):
-                    self.grid[r][c] = "" if game_data["grid"][r][c] == " " else game_data["grid"][r][c]
+                    self.grid[r][c] = game_data["grid"][r][c]
             
             self.update_display()
             self.game_id_label.set_text(f"Game ID: {self.current_game_id}")
@@ -134,7 +134,7 @@ class TicTacToeApp:
             # Mettre à jour depuis le backend
             for r in range(ROWS):
                 for c in range(COLS):
-                    self.grid[r][c] = "" if game_data["grid"][r][c] == " " else game_data["grid"][r][c]
+                    self.grid[r][c] = game_data["grid"][r][c]
             
             self.current_player = game_data["current_player"]
             

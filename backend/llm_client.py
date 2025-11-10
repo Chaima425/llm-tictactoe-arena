@@ -34,34 +34,33 @@ class LLMClient:
         if model.startswith("azure:"):
             for attempt in range(max_attempts):
                 azure_response = self.azure_client.get_azure_move(grid, player, model)
-                
-                # Si la réponse contient une erreur, on log et on retente
-                if "error" in azure_response:
-                    print(f"Erreur de communication avec Azure (tentative {attempt+1}/{max_attempts}): {azure_response['error']}")
-                    continue
 
-                # Si on a une réponse, on la valide
-                parsed_move = self._validate_move(
-                    azure_response['row'], 
-                    azure_response['col'], 
-                    empty_cells, 
-                    azure_response.get('raw_response', '')
-                )
+                print(f"AzureClient response (attempt {attempt+1}): {azure_response}")
                 
-                if self._is_valid_move(parsed_move, grid):
-                    self.recent_moves.append((parsed_move['row'], parsed_move['col']))
+                # CORRECTION : Vérifier d'abord si la réponse contient une erreur
+                if azure_response.get("error"):
+                    print(f"AzureClient error: {azure_response.get('error')}")
+                    if attempt == max_attempts - 1:  # Dernière tentative
+                        break
+                    continue
+                
+                # CORRECTION : Validation plus robuste
+                if (self._is_valid_move(azure_response, grid) and 
+                    azure_response.get("row", -1) >= 0 and 
+                    azure_response.get("col", -1) >= 0):
+                    
+                    self.recent_moves.append((azure_response['row'], azure_response['col']))
                     if len(self.recent_moves) > 5:
                         self.recent_moves.pop(0)
-                    return {"row": parsed_move['row'], "col": parsed_move['col'], "valid": True}
+                    return {"row": azure_response['row'], "col": azure_response['col'], "valid": True}
                 else:
-                    # Le coup est syntaxiquement correct mais invalide (ex: case déjà prise)
-                    print(f"Azure a proposé un coup invalide ({parsed_move['row']}, {parsed_move['col']}), nouvelle tentative...")
-            
-            # Si on arrive ici, toutes les tentatives ont échoué
-            print("INFO : Échec des tentatives avec Azure. Utilisation d'un coup stratégique de repli.")
+                    print(f"Azure a proposé un coup invalide ({azure_response.get('row')}, {azure_response.get('col')})")
+                    
+            # CORRECTION : Log clair de l'échec avant fallback
+            print(f"INFO : Échec après {max_attempts} tentatives avec Azure. Utilisation d'un coup stratégique.")
             return self._select_strategic_move(empty_cells)
         
-        # Code existant pour les modèles locaux
+        # Pour les modèles locaux
         for attempt in range(max_attempts):
             prompt = self._create_prompt(grid, player, empty_cells, attempt)
             try:
