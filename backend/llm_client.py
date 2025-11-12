@@ -37,14 +37,14 @@ class LLMClient:
 
                 print(f"AzureClient response (attempt {attempt+1}): {azure_response}")
                 
-                # CORRECTION : Vérifier d'abord si la réponse contient une erreur
+                # Vérifier d'abord si la réponse contient une erreur
                 if azure_response.get("error"):
                     print(f"AzureClient error: {azure_response.get('error')}")
                     if attempt == max_attempts - 1:  # Dernière tentative
                         break
                     continue
                 
-                # CORRECTION : Validation plus robuste
+                # Validation plus robuste
                 if (self._is_valid_move(azure_response, grid) and 
                     azure_response.get("row", -1) >= 0 and 
                     azure_response.get("col", -1) >= 0):
@@ -56,7 +56,7 @@ class LLMClient:
                 else:
                     print(f"Azure a proposé un coup invalide ({azure_response.get('row')}, {azure_response.get('col')})")
                     
-            # CORRECTION : Log clair de l'échec avant fallback
+            # Log clair de l'échec avant fallback
             print(f"INFO : Échec après {max_attempts} tentatives avec Azure. Utilisation d'un coup stratégique.")
             return self._select_strategic_move(empty_cells)
         
@@ -89,7 +89,6 @@ class LLMClient:
         
         return self._select_strategic_move(empty_cells)
 
-    # Le reste des méthodes reste inchangé...
     def _create_prompt(self, grid: list, player: str, empty_cells: list, attempt: int) -> str:
         grid_visual = "   0 1 2 3 4 5 6 7 8 9\n  +-------------------+\n"
         for i, row in enumerate(grid):

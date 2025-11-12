@@ -92,7 +92,6 @@ class AzureClient:
 
             print(f"[DEBUG Azure] Réponse brute: '{move}'")
 
-            # Le reste de votre code d'analyse...
             patterns = [
                 r'^\s*(\d)\s*,\s*(\d)\s*$',  # 4,5
                 r'^\s*(\d)\s+(\d)\s*$',      # 4 5
