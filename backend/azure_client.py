@@ -9,9 +9,9 @@ class AzureClient:
     def __init__(self):
         self.api_key = os.getenv("AZURE_API_KEY")
         self.azure_endpoint = os.getenv("AZURE_ENDPOINT", "")
-        self.api_version = os.getenv("AZURE_API_VERSION", "2024-02-01")
-        self.model = os.getenv("AZURE_MODELS", "gpt-4o-mini").split(",")[0].strip()
-
+        self.api_version = os.getenv("AZURE_API_VERSION", "2025-01-01-preview") # modifié 
+        # self.model = os.getenv("AZURE_MODELS", "gpt-4o-mini").split(",")[0].strip()
+        self.model = os.getenv("AZURE_MODELS", "o4-mini").split(",")[0].strip()
         if not self.api_key or not self.azure_endpoint:
             print("Variables Azure manquantes - utilisation des modèles locaux seulement")
             self.client = None
