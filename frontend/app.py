@@ -157,16 +157,17 @@ class TicTacToeApp:
 
     def safe_auto_move(self):
         try:
-            # Si un joueur a déjà gagné, stop le mode auto
+            # Si la partie n'a pas démarré, rien à faire
             if self.current_game_id is None:
                 return
-            # Vérifie s'il y a un gagnant
-            if any(score > 0 for score in self.scores.values()):
+            # Vérifie s'il y a un gagnant dans la partie en cours
+            if self.winner:
                 self.toggle_auto_mode()
                 return
             self.make_move()
         except Exception as e:
             print(f"[AutoMode] Erreur: {e}")
+
 
 
 if __name__ in {"__main__", "__mp_main__"}:

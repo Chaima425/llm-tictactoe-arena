@@ -5,7 +5,7 @@ from typing import List
 def fetch_models(api_url: str) -> List[str]:
     """Récupérer la liste des modèles depuis le backend"""
     try:
-        resp = requests.get(f"{api_url}/api/models", timeout=5)
+        resp = requests.get(f"{api_url}/api/models", timeout=15)
         resp.raise_for_status()
         return resp.json().get("models", ["phi3"])
     except Exception as e:
@@ -16,7 +16,7 @@ def fetch_models(api_url: str) -> List[str]:
 def safe_post(url: str, payload: dict) -> dict:
     """Envoi sécurisé POST request"""
     try:
-        resp = requests.post(url, json=payload, timeout=5)
+        resp = requests.post(url, json=payload, timeout=15)
         resp.raise_for_status()
         return resp.json()
     except Exception as e:
