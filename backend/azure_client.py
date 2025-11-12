@@ -59,12 +59,12 @@ class AzureClient:
                         "You are playing Tic-Tac-Toe on a 10x10 grid. "
                         "The victory condition is to line up 5 identical elements horizontally, vertically or diagonally. "
                         "If your opponent is about to win, you should block these potentially winning moves. "
-                        "Please provide your move as two comma-separated digits (row,column). "
-                        "For example, if you want to play at row 3, column 7, your response should be '3,7'."
+                        "CRITICAL: Your response must be ONLY two numbers separated by a comma (row,column). "
+                        "No explanations, no sentences, just the coordinates like '3,7'."
                     )},
                     {"role": "user", "content": prompt}
                 ],
-                max_completion_tokens=20,
+                max_completion_tokens=500,
             )
             
             logger.debug(f"[DEBUG Azure] Réponse complète reçue: {response}")
@@ -144,6 +144,7 @@ class AzureClient:
             f"Player '{player}' is playing a Tic-Tac-Toe game. "
             "The goal is to line up 5 identical symbols. "
             "If the opponent is about to win, block them immediately. "
-            "Please provide the next move as coordinates in the format 'row,column' (e.g. 3,7)."
+            "IMPORTANT: Respond with ONLY the coordinates in format 'row,column' (e.g. '3,7'). "
+            "Do not add any explanation or text. Just the coordinates."
         )
         return prompt

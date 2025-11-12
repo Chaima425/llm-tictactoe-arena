@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  llm-tictactoe:
+    build: .
+    ports:
+      - "8000:8000" # Port FastAPI
+      - "8080:8080" # Port NiceGUI
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - AZURE_API_KEY=${AZURE_API_KEY}
+      - AZURE_ENDPOINT=${AZURE_ENDPOINT}
+      - AZURE_API_VERSION=${AZURE_API_VERSION}
+      - AZURE_MODELS=${AZURE_MODELS}
+    volumes:
+      - .game_logs:/app/game_logs
+    restart: unless-stopped
