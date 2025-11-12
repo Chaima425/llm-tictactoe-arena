@@ -189,4 +189,4 @@ class TicTacToeApp:
 
 if __name__ in {"__main__", "__mp_main__"}:
     app = TicTacToeApp()
-    ui.run()
+    ui.run(reconnect_timeout=60)
