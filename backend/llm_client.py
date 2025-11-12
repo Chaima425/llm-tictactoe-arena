@@ -2,11 +2,14 @@ import os
 import requests
 import random
 import re
+import logging
 from dotenv import load_dotenv
 from azure_client import AzureClient
 
 load_dotenv()
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 class LLMClient:
     def __init__(self):
         self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
@@ -19,7 +22,8 @@ class LLMClient:
             response = requests.get(f"{self.ollama_url}/api/tags")
             if response.status_code == 200:
                 local_models = [model['name'] for model in response.json().get('models', [])]
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Erreur lors de la récupération des modèles locaux: {e}")
             local_models = ["phi3:3.8b"]
         
         azure_models = self.azure_client.get_azure_models()
@@ -35,11 +39,11 @@ class LLMClient:
             for attempt in range(max_attempts):
                 azure_response = self.azure_client.get_azure_move(grid, player, model)
 
-                print(f"AzureClient response (attempt {attempt+1}): {azure_response}")
+                logger.info(f"AzureClient response (attempt {attempt+1}): {azure_response}")
                 
                 # Vérifier d'abord si la réponse contient une erreur
                 if azure_response.get("error"):
-                    print(f"AzureClient error: {azure_response.get('error')}")
+                    logger.warning(f"AzureClient error: {azure_response.get('error')}")
                     if attempt == max_attempts - 1:  # Dernière tentative
                         break
                     continue
@@ -54,10 +58,10 @@ class LLMClient:
                         self.recent_moves.pop(0)
                     return {"row": azure_response['row'], "col": azure_response['col'], "valid": True}
                 else:
-                    print(f"Azure a proposé un coup invalide ({azure_response.get('row')}, {azure_response.get('col')})")
+                    logger.warning(f"Azure a proposé un coup invalide ({azure_response.get('row')}, {azure_response.get('col')})")
                     
             # Log clair de l'échec avant fallback
-            print(f"INFO : Échec après {max_attempts} tentatives avec Azure. Utilisation d'un coup stratégique.")
+            logger.info(f"Échec après {max_attempts} tentatives avec Azure. Utilisation d'un coup stratégique.")
             return self._select_strategic_move(empty_cells)
         
         # Pour les modèles locaux
@@ -84,7 +88,7 @@ class LLMClient:
                             self.recent_moves.pop(0)
                         return parsed_move
             except Exception as e:
-                print(f"Erreur modèle local {model}: {e}")
+                logger.error(f"Erreur modèle local {model}: {e}")
                 continue
         
         return self._select_strategic_move(empty_cells)

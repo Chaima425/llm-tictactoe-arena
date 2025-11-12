@@ -1,6 +1,10 @@
 from nicegui import ui
 import requests
+import logging
 from typing import List, Optional, Any
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 API_URL = "http://127.0.0.1:8000"
 ROWS, COLS = 10, 10
@@ -28,7 +32,7 @@ class TicTacToeApp:
             self.available_models = resp.json().get("models", ["phi3"])
         except Exception as e:
             self.available_models = ["phi3"]
-            print(f"Erreur récupération modèles: {e}")
+            logger.error(f"Erreur récupération modèles: {e}")
 
     def setup_ui(self):
         # Header
@@ -107,11 +111,14 @@ class TicTacToeApp:
             
             self.update_display()
             self.game_id_label.set_text(f"Game ID: {self.current_game_id}")
+            logger.info(f"Nouvelle partie initialisée avec ID: {self.current_game_id}")
         except Exception as e:
+            logger.error(f"Erreur lors de l'initialisation du jeu: {e}")
             ui.notify(f"Erreur: {e}", color="negative")
 
     def make_move(self):
         if not self.current_game_id:
+            logger.warning("Tentative de jouer sans partie initialisée")
             ui.notify("Démarrez d'abord une partie", color="warning")
             return
 
@@ -142,6 +149,7 @@ class TicTacToeApp:
             if game_data.get("winner"):
                 winner = game_data["winner"]
                 self.scores[winner] += 1
+                logger.info(f"Le joueur {winner} a gagné la partie {self.current_game_id}")
                 ui.notify(f"Le joueur {winner} a gagné !", color="positive")
                 if self.auto_mode: 
                     self.toggle_auto_mode()
@@ -149,6 +157,7 @@ class TicTacToeApp:
             self.update_display()
             
         except Exception as e:
+            logger.error(f"Erreur lors du jeu : {e}")
             ui.notify(f"Erreur: {e}", color="negative")
 
     def update_display(self):
