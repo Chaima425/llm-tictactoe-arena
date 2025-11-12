@@ -12,6 +12,4 @@ services:
       - AZURE_ENDPOINT=${AZURE_ENDPOINT}
       - AZURE_API_VERSION=${AZURE_API_VERSION}
       - AZURE_MODELS=${AZURE_MODELS}
-    volumes:
-      - .game_logs:/app/game_logs
     restart: unless-stopped
