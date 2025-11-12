@@ -17,12 +17,6 @@ class GameEngine:
             "move_count": 0
         }
     
-    def is_valid_move(self, grid: List[List[str]], row: int, col: int) -> bool:
-        """Vérifier si un coup est valide"""
-        return (0 <= row < self.grid_size and
-                0 <= col < self.grid_size and
-                grid[row][col] == " ")
-    
     def make_move(self, grid: List[List[str]], row: int, col: int, player: str) -> List[List[str]]:
         """Jouer un coup"""
         new_grid = [row[:] for row in grid]
@@ -31,10 +25,8 @@ class GameEngine:
     
     def check_winner(self, grid: List[List[str]], player: str) -> bool:
         """Vérifier si un joueur a gagné"""
-        # 4 directions : horizontale, verticale et les 2 diagonales
         directions = [(0, 1), (1, 0), (1, 1), (1, -1)]
 
-        # On parcours la grille sur chaque row et col
         for row in range(self.grid_size):
             for col in range(self.grid_size):
                 if grid[row][col] == player:
@@ -42,8 +34,8 @@ class GameEngine:
                         count = 1
                         for step in range(1, self.win_length):
                             nrow, ncol = row + dx * step, col + dy * step
-                            if (0 <= nrow < self.grid_size and
-                                0 <= ncol < self.grid_size and
+                            if (0 <= nrow < self.grid_size and 
+                                0 <= ncol < self.grid_size and 
                                 grid[nrow][ncol] == player):
                                 count += 1
                             else:

@@ -1,89 +1,143 @@
-from dotenv import load_dotenv
-from os import getenv
+import os
 import requests
-import json
-import logging
+import random
+import re
+from dotenv import load_dotenv
+from azure_client import AzureClient
 
 load_dotenv()
-logger = logging.getLogger(__name__)
 
 class LLMClient:
     def __init__(self):
-        self.ollama_url = getenv("OLLAMA_URL")
+        self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        self.recent_moves = []
+        self.azure_client = AzureClient()
 
     def get_available_models(self) -> list:
-        """Récupérer les modèles disponibles dans Ollama"""
+        local_models = []
         try:
             response = requests.get(f"{self.ollama_url}/api/tags")
             if response.status_code == 200:
-                models = response.json().get('models', [])
-                return [model['name'] for model in models]
-        except Exception as e:
-            logger.error(f"Erreur de récupération du modèle: {e}")
-        return ["llama2"]
-    
-    def ask_move(self, grid: list, player: str, model: str) -> dict:
-        """Demande un coup au LLM"""
+                local_models = [model['name'] for model in response.json().get('models', [])]
+        except Exception:
+            local_models = ["phi3:3.8b"]
+        
+        azure_models = self.azure_client.get_azure_models()
+        return local_models + azure_models
 
-        prompt = self._create_prompt(grid, player)
+    def ask_move(self, grid: list, player: str, model: str, max_attempts: int = 3) -> dict:
+        """Demander un coup à un modèle (local ou Azure) avec validation"""
+        empty_cells = [(i, j) for i in range(10) for j in range(10) if grid[i][j] == " "]
+        if not empty_cells:
+            return {"row": 0, "col": 0, "valid": False, "error": "grid_full"}
+        
+        if model.startswith("azure:"):
+            for attempt in range(max_attempts):
+                azure_response = self.azure_client.get_azure_move(grid, player, model)
 
-        try:
-            response = requests.post(
-                f"{self.ollama_url}/api/generate",
-                json={
-                    "model": model,
-                    "prompt": prompt,
-                    "stream": False
-                },
-                timeout=30
-            )
-            if response.status_code == 200:
-                llm_response = response.json().get("response", "").strip()
-                return self._parse_response(llm_response)
-            else:
-                logger.error(f"Erreur LLM: {response.status_code}")
+                print(f"AzureClient response (attempt {attempt+1}): {azure_response}")
                 
-        except Exception as e:
-            logger.error(f"Erreur appel LLM: {e}")
+                # Vérifier d'abord si la réponse contient une erreur
+                if azure_response.get("error"):
+                    print(f"AzureClient error: {azure_response.get('error')}")
+                    if attempt == max_attempts - 1:  # Dernière tentative
+                        break
+                    continue
+                
+                # Validation plus robuste
+                if (self._is_valid_move(azure_response, grid) and 
+                    azure_response.get("row", -1) >= 0 and 
+                    azure_response.get("col", -1) >= 0):
+                    
+                    self.recent_moves.append((azure_response['row'], azure_response['col']))
+                    if len(self.recent_moves) > 5:
+                        self.recent_moves.pop(0)
+                    return {"row": azure_response['row'], "col": azure_response['col'], "valid": True}
+                else:
+                    print(f"Azure a proposé un coup invalide ({azure_response.get('row')}, {azure_response.get('col')})")
+                    
+            # Log clair de l'échec avant fallback
+            print(f"INFO : Échec après {max_attempts} tentatives avec Azure. Utilisation d'un coup stratégique.")
+            return self._select_strategic_move(empty_cells)
         
-        # Fallback: premier coup disponible
-        return self._find_first_valid_move(grid)
-    
-    def _create_prompt(self, grid: list, player: str) -> str:
-        """Créer le prompt pour le LLM"""
-        grid_str = self._format_grid(grid)
+        # Pour les modèles locaux
+        for attempt in range(max_attempts):
+            prompt = self._create_prompt(grid, player, empty_cells, attempt)
+            try:
+                response = requests.post(
+                    f"{self.ollama_url}/api/generate", 
+                    json={
+                        "model": model, 
+                        "prompt": prompt, 
+                        "stream": False,
+                        "options": {"temperature": 0.3, "top_p": 0.3, "num_predict": 10}
+                    }, 
+                    timeout=20
+                )
+                
+                if response.status_code == 200:
+                    llm_response = response.json().get("response", "").strip()
+                    parsed_move = self._parse_response(llm_response, empty_cells)
+                    if self._is_valid_move(parsed_move, grid):
+                        self.recent_moves.append((parsed_move['row'], parsed_move['col']))
+                        if len(self.recent_moves) > 5:
+                            self.recent_moves.pop(0)
+                        return parsed_move
+            except Exception as e:
+                print(f"Erreur modèle local {model}: {e}")
+                continue
         
-        return f"""You are playing tic-tac-toe on a 10x10 grid. You are player “{player}”. 
-        Rules: Line up 5 “{player}” horizontally, vertically or diagonally to win. 
-        Current grid (rows 0-9, columns 0-9):{grid_str}
-        Respond ONLY with coordinates in the format: ‘row,column’Example: ‘3,4’ for row 3, column 4.
-        Choose a valid move (empty square). Your move:"""
-    
-    def _format_grid(self, grid: list) -> str:
-        """Formater la grille pour l'affichage"""
-        result = "   " + " ".join(str(i) for i in range(10)) + "\n"
+        return self._select_strategic_move(empty_cells)
+
+    def _create_prompt(self, grid: list, player: str, empty_cells: list, attempt: int) -> str:
+        grid_visual = "   0 1 2 3 4 5 6 7 8 9\n  +-------------------+\n"
         for i, row in enumerate(grid):
-            result += f"{i:2} " + " ".join(cell if cell != " " else "." for cell in row) + "\n"
-        return result
-    
-    def _parse_response(self, response: str) -> dict:
-        """Parser la réponse du LLM"""
-        try:
-            # Extraire les nombres de la réponse
-            import re
-            numbers = re.findall(r'\d+', response)
-            if len(numbers) >= 2:
-                row, col = int(numbers[0]), int(numbers[1])
-                return {"row": row, "col": col, "raw_response": response}
-        except Exception as e:
-            logger.error(f"Erreur parsing réponse: {response}, erreur: {e}")
+            grid_visual += f"{i} |" + "".join(f" {'.' if cell==' ' else cell}" for cell in row) + " |\n"
+        grid_visual += "  +-------------------+\n"
         
-        return {"row": 0, "col": 0, "raw_response": response, "error": "parse_failed"}
-    
-    def _find_first_valid_move(self, grid: list) -> dict:
-        """Trouver le premier coup valide (fallback)"""
-        for i in range(10):
-            for j in range(10):
-                if grid[i][j] == " ":
-                    return {"row": i, "col": j, "raw_response": "fallback", "error": "llm_failed"}
-        return {"row": 0, "col": 0, "raw_response": "no_moves"}
+        if attempt == 0:
+            available_cells = [c for c in empty_cells if c not in self.recent_moves][:8]
+            return f"{grid_visual}Player {player}, available cells: {available_cells}. Answer: row,column"
+        elif attempt == 1:
+            return f"{grid_visual}Player {player}, answer ONLY: row,column (e.g. 3,5)"
+        else:
+            return f"Player {player}, give two numbers (row, column): "
+
+    def _parse_response(self, response: str, empty_cells: list) -> dict:
+        patterns = [r'^\s*(\d)\s*,\s*(\d)\s*$', r'(\d)\s*[,.\-\s]?\s*(\d)']
+        for pattern in patterns:
+            match = re.search(pattern, response)
+            if match: 
+                row, col = int(match.group(1)), int(match.group(2))
+                return self._validate_move(row, col, empty_cells, response)
+        
+        numbers = re.findall(r'\d', response)
+        if len(numbers) >= 2: 
+            return self._validate_move(int(numbers[0]), int(numbers[1]), empty_cells, response)
+        
+        return self._select_random_move(empty_cells, response)
+
+    def _validate_move(self, row: int, col: int, empty_cells: list, response: str) -> dict:
+        valid = (row, col) in empty_cells and (row, col) not in self.recent_moves
+        return {"row": row, "col": col, "raw_response": response, "valid": valid}
+
+    def _select_random_move(self, empty_cells: list, response: str) -> dict:
+        non_recent = [c for c in empty_cells if c not in self.recent_moves]
+        if not non_recent:
+            non_recent = empty_cells
+        row, col = random.choice(non_recent)
+        return {"row": row, "col": col, "raw_response": f"random: {response}", "valid": True}
+
+    def _select_strategic_move(self, empty_cells: list) -> dict:
+        center_cells = [(4,4), (4,5), (5,4), (5,5)]
+        for cell in center_cells:
+            if cell in empty_cells and cell not in self.recent_moves:
+                return {"row": cell[0], "col": cell[1], "raw_response": "strategic", "valid": True}
+        return self._select_random_move(empty_cells, "fallback")
+
+    def _is_valid_move(self, move: dict, grid: list) -> bool:
+        row, col = move.get("row", -1), move.get("col", -1)
+        return (0 <= row < 10 and 
+                0 <= col < 10 and 
+                grid[row][col] == " " and 
+                (row, col) not in self.recent_moves)
