@@ -51,14 +51,11 @@ class AzureClient:
                 model=actual_model,
                 messages=[
                     {"role": "system", "content": (
-                        "You are an expert Tic-Tac-Toe player on a 10x10 grid. "
-                        "Your ONLY task is to provide your next move as two comma-separated digits (row,column). "
-                        "For example, if you want to play at row 3, column 7, your response MUST be '3,7'. "
-                        "DO NOT include any other text, greetings, explanations, or formatting whatsoever. "
-                        "You must only output 'row,column'."
-                        "Victory condition: line up 5 identical elements horizontally, vertically or diagonally."
-                        "Defeat condition: if your opponent fulfils the victory condition, you must block these potentially winning moves."
-                        "Prioritises victory first and blocking second."
+                        "You are playing Tic-Tac-Toe on a 10x10 grid. "
+                        "The victory condition is to line up 5 identical elements horizontally, vertically or diagonally. "
+                        "If your opponent is about to win, you should block these potentially winning moves. "
+                        "Please provide your move as two comma-separated digits (row,column). "
+                        "For example, if you want to play at row 3, column 7, your response should be '3,7'."
                     )},
                     {"role": "user", "content": prompt}
                 ],
@@ -139,9 +136,9 @@ class AzureClient:
         prompt = (
             f"{history_text}"
             f"Current 10x10 grid (rows 0-9, columns 0-9) :\n{board}\n\n"
-            f"You are playing as '{player}'. "
-            "Your goal is to win by lining up 5 identical symbols. "
-            "If your opponent is about to win, block them immediately. "
-            "Respond only with the coordinates 'row,column' (e.g. 3,7)."
+            f"Player '{player}' is playing a Tic-Tac-Toe game. "
+            "The goal is to line up 5 identical symbols. "
+            "If the opponent is about to win, block them immediately. "
+            "Please provide the next move as coordinates in the format 'row,column' (e.g. 3,7)."
         )
         return prompt
