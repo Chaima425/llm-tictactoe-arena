@@ -15,7 +15,7 @@ def main():
         logger.info("Lancement du backend FastAPI...")
         backend_dir = Path(__file__).parent / "backend"
         backend_process = subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "api:app", "--reload", "--host", "0.0.0.0", "--port", "8000"], 
+            [sys.executable, "-m", "uvicorn", "api:app", "--reload", "--host", "127.0.0.1", "--port", "8000"], 
             cwd=backend_dir
         )
 
