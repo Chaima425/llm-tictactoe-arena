@@ -15,6 +15,6 @@ COPY . .
 # Exposer le port sur lequel l'application tourne
 EXPOSE 8000 8080
 
-# Commande par défaut pour lancer ton app
-# Ici on suppose que tu lances NiceGUI depuis main.py
+# Commande pour lancer l'app
+# puisque le NiceGUI est lancé depuis main.py
 CMD ["python", "main.py"]
